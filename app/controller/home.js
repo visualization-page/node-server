@@ -7,30 +7,56 @@ class HomeController extends Controller {
     this.ctx.body = 'hi, egg'
   }
 
+  // curl -d "templateId=1" http://localhost:7001/prepareTemplate
   async prepareTemplate () {
-    const res = await makeTemplateDir.call(this, this.ctx.request.body.templateId, 1)
-    this.ctx.body = res
+    const { templateId } = this.ctx.request.body
+    // 获取template url
+    const template = await this.service.db.getTemplateById(templateId)
+
+    // console.log(template)
+    const result = await makeTemplateDir.call(this, templateId, '1', template.files)
+    this.ctx.body = {
+      page: result,
+      template
+    }
   }
 }
 
-async function makeTemplateDir (templateId, pageId) {
-  const { ctx, service, config } = this
-  const { downloadRepo } = ctx.helper
-  // 获取template url
-  const res = await service.db.getTemplateById(templateId)
+async function makeTemplateDir (templateId, projectId, repoName) {
+  const { ctx, config } = this
+  const { downloadRepo, isProjectExist } = ctx.helper
   // 下载template
   // 解压template
-  const template = 'node-server'
-  // curl -d "templateId=1" http://localhost:7001/prepareTemplate
-  const projectPath = path.resolve(process.cwd(), config.projectPath, template)
-  await downloadRepo(template, projectPath)
-  // await downloadRepo('vue-slip-delete', projectPath, 'Jmingzi')
+  const projectPath = path.resolve(config.projectPath, projectId, repoName)
+  await downloadRepo(repoName, projectPath).catch(err => {
+    this.logger.error('controller-makeTemplateDir', err)
+    throw err
+  })
   // 安装依赖
   // 启动服务
+  const isExist = await isProjectExist(projectPath)
+  // console.log(isExist)
+  if (!isExist) {
+    await ctx.helper.exec([
+      `cd ${projectPath}`,
+      'cnpm i',
+    ], 'All packages installed').catch(err => {
+      this.logger.error('controller-makeTemplateDir', err)
+      throw err
+    })
+  }
   await ctx.helper.exec([
     `cd ${projectPath}`,
-    'npm i'
-  ])
+    'npm run serve'
+  ], 'Compiled successfully').catch(err => {
+    this.logger.error('controller-makeTemplateDir', err)
+    throw err
+  })
+
+  return {
+    projectPath,
+    projectId
+  }
 }
 
 module.exports = HomeController

@@ -19,9 +19,7 @@ module.exports = appInfo => {
     }
   }
 
-
-
-  config.projectPath = 'app/public/project'
+  config.projectPath = `${process.env.HOME}/Documents/page-workspace`
 
   return config
 }

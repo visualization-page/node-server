@@ -1,37 +1,48 @@
 const download = require('download-git-repo')
 const { spawn } = require('child_process')
+const fsPromise = require('fs').promises
 // const net = require('net')
 
 module.exports = {
   downloadRepo (repoName, dest, owner = 'visualization-page') {
     return new Promise((resolve, reject) => {
-      download(`${owner}/${repoName}`, dest, err => {
+      download(`github:${owner}/${repoName}`, dest, err => {
         if (err) reject(err)
         else resolve()
       })
     })
   },
 
-  exec (cmd) {
-    const command = (typeof cmd === 'string' ? [cmd] : cmd).join(' && ')
+  isProjectExist (path) {
+    return fsPromise.readdir(path)
+  },
+
+  exec (cmd, endRegexp) {
+    const command = typeof cmd === 'string' ? cmd : cmd.join(' && ')
     return new Promise((resolve, reject) => {
       // const tcp = net.createServer(socket => {
       //   socket.pipe(socket)
-      const childProcess = spawn(command, { shell: true })
-      childProcess.stdout.on('data', data =>
+      const child = spawn(command, { shell: true })
+      child.stdout.on('data', data => {
         // socket.write(data)
         console.log(data.toString())
-      )
-      childProcess.stderr.on('data', data =>
+        if (
+          endRegexp &&
+          (new RegExp(endRegexp, 'i')).test(data.toString())
+        ) {
+          resolve()
+        }
+      })
+      child.stderr.on('data', data => {
         console.log(data.toString())
         // socket.write(data)
-      )
-      childProcess.on('close', code => {
+      })
+      child.on('close', code => {
         // tcp.close()
         if (code === 0) {
           resolve()
         } else {
-          reject()
+          reject(code)
         }
       })
       // })
