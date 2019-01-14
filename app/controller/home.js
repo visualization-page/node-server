@@ -24,7 +24,7 @@ class HomeController extends Controller {
 
 async function makeTemplateDir (templateId, projectId, repoName) {
   const { ctx, config } = this
-  const { downloadRepo, isProjectExist } = ctx.helper
+  const { downloadRepo, getDir } = ctx.helper
   // 下载template
   // 解压template
   const projectPath = path.resolve(config.projectPath, projectId, repoName)
@@ -34,9 +34,9 @@ async function makeTemplateDir (templateId, projectId, repoName) {
   })
   // 安装依赖
   // 启动服务
-  const isExist = await isProjectExist(projectPath)
+  const dirs = await getDir(projectPath)
   // console.log(isExist)
-  if (!isExist) {
+  if (!dirs) {
     await ctx.helper.exec([
       `cd ${projectPath}`,
       'cnpm i',

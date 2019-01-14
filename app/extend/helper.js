@@ -13,7 +13,7 @@ module.exports = {
     })
   },
 
-  isProjectExist (path) {
+  getDir (path) {
     return fsPromise.readdir(path)
   },
 
