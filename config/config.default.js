@@ -1,4 +1,4 @@
-'use strict'
+const path = require('path')
 
 module.exports = appInfo => {
   const config = exports = {}
@@ -19,7 +19,23 @@ module.exports = appInfo => {
     }
   }
 
+  // const time = new Date()
+  // const date = time.getFullYear() + '-' + (time.getMonth() + 1) + '-' + time.getDate()
+  config.logger = {
+    // appLogName: `${appInfo.name}-${date}-web.log`
+    // appLogName: `${date}.log`
+  }
+
+  config.customLogger = {
+    operatorLogger: {
+      file: path.join(appInfo.root, 'logs/operator.log')
+    }
+  }
+
   config.projectPath = `${process.env.HOME}/Documents/page-workspace`
+  config.materialsRepo = 'vue-materials'
+  config.log = 'operatorLogger'
+  config.logName = 'operatorLog'
 
   return config
 }

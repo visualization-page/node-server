@@ -12,7 +12,12 @@ exports.mongoose = {
   package: 'egg-mongoose'
 }
 
-exports.websocket = {
+// exports.websocket = {
+//   enable: true,
+//   package: 'egg-websocket'
+// }
+
+exports.io = {
   enable: true,
-  package: 'egg-websocket'
+  package: 'egg-socket.io'
 }

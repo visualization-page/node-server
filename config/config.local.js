@@ -11,5 +11,17 @@ exports.mongoose = {
 
 exports.middleware = ['graphql']
 
-exports.websocket = {
+// exports.websocket = {
+//   port: 8080,
+//   path: '/test'
+// }
+
+exports.io = {
+  init: { }, // passed to engine.io
+  namespace: {
+    '/operateLog': {
+      connectionMiddleware: [],
+      packetMiddleware: []
+    }
+  }
 }

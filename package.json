@@ -9,7 +9,7 @@
     "egg-graphql": "^2.3.0",
     "egg-mongoose": "^3.1.1",
     "egg-scripts": "^2.5.0",
-    "egg-websocket": "^0.0.1"
+    "egg-socket.io": "^4.1.5"
   },
   "devDependencies": {
     "autod": "^3.0.1",
