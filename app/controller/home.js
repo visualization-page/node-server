@@ -8,7 +8,7 @@ class HomeController extends Base {
     // this.ctx.getLogger('operatorLogger').error('1')
     // this.ctx.cookies.set('userId', 1)
     const { query } = url.parse(this.ctx.request.url, true)
-    this.ctx.helper.log.call(this, `hello userId ${query.userId}`)
+    // this.ctx.helper.log.call(this, `hello userId ${query.userId}`)
     this.ctx.body = {
       success: true,
       data: `hello userId ${query.userId}`
