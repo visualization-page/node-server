@@ -1,7 +1,5 @@
 const Controller = require('egg').Controller
 const path = require('path')
-// const { exec } = require('child_process')
-// const subProcessMap = {}
 
 class Util extends Controller {
   emit (message) {
@@ -31,9 +29,11 @@ class Util extends Controller {
     const pid = await this.getServerPid(dirName)
     // 杀掉启动进程，保留server进程
     await ctx.helper.exec(`kill -9 ${result.child.pid}`)
-    this.emit(`server启动地址为：http://localhost:${result.matches[1]}. pid: ${pid}`)
+    const url = `http://localhost:${result.matches[1]}`
+    this.emit(`server启动地址为：${url}. pid: ${pid}`)
     return {
       serverPid: pid,
+      url,
       dirName
     }
   }
@@ -41,6 +41,28 @@ class Util extends Controller {
   async getServerPid (dirName) {
     const res = await this.ctx.helper.exec(`ps gx | grep ${dirName}/node`, undefined, '(\\d+).*?')
     return res.matches[0]
+  }
+
+  async injectComponent (templateComponents) {
+    const { readFile, writeFile } = this.ctx.helper
+    const targetPath = `${this.config.projectPath}/12/src/views/Home.vue`
+    const content = await readFile(targetPath).catch(err => {
+      this.emit(JSON.stringify(err))
+      throw err
+    })
+
+    const result = content.replace(/\/\/ inject-start\n[\s\S]+\/\/ inject-end/, (match, p1, offset, string) => {
+      const componentImport = templateComponents.map(x => `import ${x.name} from '${x.path}'`)
+      componentImport.unshift(`// inject-start`)
+      componentImport.push(`const components = ${JSON.stringify(templateComponents, null, 2)}`)
+      componentImport.push('const importList = {')
+      templateComponents.forEach(x => componentImport.push(`  '${x.name}': ${x.name}`))
+      componentImport.push('}')
+      componentImport.push(`// inject-end`)
+      // const content = `// inject-start\n${componentImport.join('\n')}\nconst components = ${JSON.stringify(mockData, null, 2)}\n// inject-end`
+      return componentImport.join('\n')
+    })
+    await writeFile(targetPath, result)
   }
 }
 
@@ -70,12 +92,22 @@ class ChatController extends Util {
   }
 
   async killServer (pid) {
-    await this.ctx.helper.exec(`kill -9 ${pid}`)
-    this.emit({ result: true, name: 'killServer' })
+    if (pid) {
+      await this.ctx.helper.exec(`kill -9 ${pid}`)
+      this.emit({ result: true, name: 'killServer' })
+    } else {
+      this.emit('pid为空')
+    }
   }
 
   async lookProcess (projectName) {
     await this.ctx.helper.exec(`ps gx | grep page-workspace/${projectName || ''}`, this.emit.bind(this))
+  }
+
+  async putComponent (component) {
+    // 当前模版所用到的组件
+    const templateComponents = [ component ]
+    this.injectComponent(templateComponents)
   }
 }
 

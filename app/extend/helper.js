@@ -29,14 +29,6 @@ module.exports = {
     return fsPromise.writeFile(path, content, { encoding: 'utf8' })
   },
 
-  // getId () {
-  //   // 生成页面ID: timeStamp + 00 + 2位随机数
-  //   const timeStranpStr = new Date().getTime()
-  //   const randomStr = Math.random().toString().slice(-2)
-  //   const pageId = `${timeStranpStr}00${randomStr}`
-  //   return pageId
-  // },
-
   exec (cmd, logFn, regExp) {
     const command = typeof cmd === 'string' ? cmd : cmd.join(' && ')
 
