@@ -48,10 +48,11 @@ module.exports = {
       child.stdout.on('data', data => {
         const message = data.toString()
         logFn && logFn(message)
-        let matches
-        if (matches = message.match(new RegExp(regExp, 'i'))) {
-          // server resolve
-          resolve({ child, matches })
+        if (regExp) {
+          let matches
+          if (matches = message.match(new RegExp(regExp, 'i'))) {
+            resolve({ child, matches })
+          }
         }
       })
 
