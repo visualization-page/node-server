@@ -2,11 +2,11 @@ const DB_SERVICE = 'db-service'
 
 module.exports = app => {
   class Component extends app.Service {
-    async insertComponent (payload) {
-      const count = await app.model.Component.count()
+    async create (payload) {
+      const count = await app.model.Record.count()
       payload.id = count + 1
 
-      const component = new app.model.Component(payload)
+      const component = new app.model.Record(payload)
       const result = await component.save().catch(err => {
         app.logger.error(DB_SERVICE, err)
         throw err
@@ -14,8 +14,8 @@ module.exports = app => {
       return result
     }
 
-    async getComponents (condition = {}) {
-      const query = await app.model.Component
+    async getRecords (condition = {}) {
+      const query = await app.model.Record
         .find(condition)
         .catch(err => {
           app.logger.error(DB_SERVICE, err)

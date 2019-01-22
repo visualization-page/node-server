@@ -2,14 +2,10 @@ module.exports = app => {
   const { mongoose } = app
   const { Schema } = mongoose
 
-  const ComponentSchema = new Schema({
+  const RecordSchema = new Schema({
     id: {
       type: Number,
       unique: true,
-      required: true
-    },
-    name: {
-      type: String,
       required: true
     },
     created_at: {
@@ -20,15 +16,25 @@ module.exports = app => {
       type: Date,
       default: Date.now
     },
-    files: {
+    // 站点名称
+    name: {
+      type: String,
+      default: '',
+    },
+    // 文件夹名称
+    dir_name: {
       type: String,
       required: true
     },
-    thumbnail: {
-      type: String,
-      default: 'https://avatars3.githubusercontent.com/u/38666040',
+    // 组件列表
+    components: {
+      type: Array
+    },
+    template_id: {
+      type: Number,
+      required: true
     }
   })
 
-  return mongoose.model('Component', ComponentSchema)
+  return mongoose.model('Record', RecordSchema)
 }
