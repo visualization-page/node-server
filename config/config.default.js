@@ -26,17 +26,14 @@ module.exports = appInfo => {
     // appLogName: `${date}.log`
   }
 
-  config.customLogger = {
-    operatorLogger: {
-      file: path.join(appInfo.root, 'logs/operator.log')
-    }
-  }
+  // config.customLogger = {
+  //   operatorLogger: {
+  //     file: path.join(appInfo.root, 'logs/operator.log')
+  //   }
+  // }
 
-  config.projectPath = `${process.env.HOME}/Documents/page-workspace`
-  config.materialsRepo = 'vue-materials'
-  config.log = 'operatorLogger'
+  // config.materialsRepo = 'vue-materials'
+  // config.log = 'operatorLogger'
   config.logName = 'operatorLog'
-  config.serverPath = 'http://localhost:3001'
-
   return config
 }

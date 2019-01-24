@@ -19,9 +19,13 @@ exports.middleware = ['graphql']
 exports.io = {
   init: { }, // passed to engine.io
   namespace: {
-    '/operateLog': {
-      connectionMiddleware: [],
-      packetMiddleware: []
-    }
+    // '/operateLog': {
+    //   connectionMiddleware: [],
+    //   packetMiddleware: []
+    // }
   }
 }
+
+exports.serverPath = 'http://localhost:3001'
+exports.projectPath = `${process.env.HOME}/Documents/page-workspace`
+

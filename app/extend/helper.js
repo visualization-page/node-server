@@ -4,10 +4,6 @@ const fsPromise = require('fs').promises
 // const net = require('net')
 
 module.exports = {
-  log(content, type = 'info') {
-    this.ctx.getLogger(this.config.log)[type](content)
-  },
-
   downloadRepo (repoName, dest, owner = 'visualization-page') {
     return new Promise((resolve, reject) => {
       download(`github:${owner}/${repoName}`, dest, err => {
