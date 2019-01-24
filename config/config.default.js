@@ -36,6 +36,7 @@ module.exports = appInfo => {
   config.materialsRepo = 'vue-materials'
   config.log = 'operatorLogger'
   config.logName = 'operatorLog'
+  config.serverPath = 'http://localhost:3001'
 
   return config
 }

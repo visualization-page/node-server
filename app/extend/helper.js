@@ -63,5 +63,9 @@ module.exports = {
         }
       })
     })
+  },
+
+  reg (str) {
+    return new RegExp(`// ${str}-start([\\s\\S]+)// ${str}-end`)
   }
 }

@@ -9,9 +9,9 @@ class ComponentController extends Controller {
   }
 
   async query () {
-    // const { query } = url.parse(this.ctx.request.url, true)
+    const { query } = url.parse(this.ctx.request.url, true)
     const { projectPath } = this.config
-    const materialsPath = `${projectPath}/${this.config.materialsRepo}/components.json`
+    const materialsPath = `${projectPath}/${query.dirName}/src/components/config.json`
     // let componentPath = `${projectPath}/${query.projectName}/src`
 
     // await this.ctx.helper.getDir(materialsPath).catch(async () => {
