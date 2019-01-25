@@ -16,19 +16,25 @@ module.exports = app => {
       type: Date,
       default: Date.now
     },
-    // 站点名称
-    name: {
-      type: String,
-      default: '',
-    },
     // 文件夹名称
     dir_name: {
       type: String,
       required: true
     },
-    // 组件列表
-    components: {
-      type: Array
+    // 站点说明
+    description: {
+      type: String,
+      default: '',
+    },
+    // 站点标题
+    title: {
+      type: String,
+      default: '',
+    },
+    // 站点相对地址
+    url: {
+      type: String,
+      default: '',
     },
     template_id: {
       type: Number,

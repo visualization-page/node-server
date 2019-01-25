@@ -17,6 +17,19 @@ class HomeController extends Base {
       data
     }
   }
+
+  async delRecord () {
+    // 删除数据库记录
+    const { id, dirName } = this.ctx.request.body
+    await this.service.record.delRecord(id)
+    // 删除文件夹
+    // const projectPath = `${this.config.projectPath}`
+    await this.ctx.helper.exec([`cd ${this.config.projectPath}`, `rm -rf ${dirName}`])
+    this.ctx.body = {
+      success: true,
+      data: null
+    }
+  }
 }
 
 module.exports = HomeController

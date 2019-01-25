@@ -23,6 +23,10 @@ module.exports = app => {
         })
       return query
     }
+
+    async delRecord (id) {
+      return await app.model.Record.deleteOne({ id })
+    }
   }
 
   return Component

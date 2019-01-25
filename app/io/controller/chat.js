@@ -21,13 +21,14 @@ class Util extends Controller {
     const exist = await readFile(`${projectPath}/package.json`).catch(async () => {
       this.emit(`下载模版 ${projectPath}`)
       await downloadRepo(repoName, projectPath)
-      this.emit(`模版下载完成，开始安装依赖`)
-      await this.ctx.helper.exec([`cd ${projectPath}`, 'npm install'], this.emit.bind(this))
+      this.emit(`模版下载完成`)
+      await this.ctx.helper.exec([`cd ${projectPath}`], this.emit.bind(this))
       return null
     })
     exist && this.emit(`项目已存在 ${projectPath}`)
     return {
-      url: `${serverPath}/${dirName}/dist/index.html`
+      url: `${serverPath}/${dirName}/dist/index.html`,
+      dirName
     }
   }
 
@@ -108,18 +109,18 @@ class ChatController extends Util {
    * @param siteName {String} 站点名称
    * @returns {Promise<void>}
    */
-  async prepareTemplate ({ templateId, projectName, recordId, siteName }) {
+  async prepareTemplate ({ templateId, dirName, recordId }) {
     const { service } = this
-    const info = await this.getProjectInfo(projectName)
+    const info = await this.getProjectInfo(dirName)
     // 检查物料
-    // await this.checkMaterials(projectName)
+    // await this.checkMaterials(dirName)
     this.emit('获取模版信息')
     let template = info && info.template
     if (!template) {
       template = await service.template.getTemplateById(templateId)
     }
     this.emit('生成模版')
-    const result = await this.makeTemplateDir(template.files, projectName).catch(err => {
+    const result = await this.makeTemplateDir(template.files, dirName).catch(err => {
       this.emit(err.message || JSON.stringify(err))
     })
     this.emit('将项目信息写入项目文件/site-config.json')
@@ -128,9 +129,9 @@ class ChatController extends Util {
     this.emit('新建模版，写入数据库')
     if (!recordId) {
       const record = await service.record.create({
-        name: siteName,
-        dir_name: projectName,
-        template_id: templateId
+        dir_name: dirName,
+        template_id: templateId,
+        url: result.url
       })
       result.recordId = record.id
     }
@@ -260,6 +261,7 @@ class ChatController extends Util {
     // 打包数据
     await exec([
       `cd ${projectPath}`,
+      'npm install',
       `npm run build`
     ], this.emit.bind(this)).catch(err => {
       if (err) throw err

@@ -11,6 +11,7 @@ module.exports = app => {
   router.post('/templates', controller.template.create)
   router.get('/components', controller.component.query)
   router.get('/records', controller.home.getRecords)
+  router.post('/delRecord', controller.home.delRecord)
   router.get('/', controller.home.index)
   io.of('/').route('chat', io.controller.chat.index)
 }
