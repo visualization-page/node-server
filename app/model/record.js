@@ -36,6 +36,10 @@ module.exports = app => {
       type: String,
       default: '',
     },
+    status: {
+      type: Number,
+      default: 0, // 0 未发布，1 已发布
+    },
     template_id: {
       type: Number,
       required: true

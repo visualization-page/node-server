@@ -101,6 +101,12 @@ class ChatController extends Util {
     this.emit('socket已连接')
   }
 
+  async savePageConfig ({ title, bgColor, dirName }) {
+    const info = await this.getProjectInfo(dirName)
+    await this.saveProjectInfo({ ...info, title, bgColor })
+    this.emit({ result: { title, bgColor }, name: 'savePageConfig' })
+  }
+
   /**
    * 下载与准备模版
    * @param templateId {Number} 模版id
@@ -110,6 +116,15 @@ class ChatController extends Util {
    * @returns {Promise<void>}
    */
   async prepareTemplate ({ templateId, dirName, recordId }) {
+    this.emit('检查文件夹是否存在')
+    const exist = await this.ctx.helper.readFile(`${this.config.projectPath}/${dirName}/package.json`)
+      .then(() => true)
+      .catch(() => false)
+    if (exist) {
+      this.emit({ result: { exist: true }, name: 'prepareTemplate' })
+      return
+    }
+
     const { service } = this
     const info = await this.getProjectInfo(dirName)
     // 检查物料
@@ -149,8 +164,8 @@ class ChatController extends Util {
     }
   }
 
-  async lookProcess (projectName) {
-    await this.ctx.helper.exec(`ps gx | grep page-workspace/${projectName || ''}`, this.emit.bind(this))
+  async lookProcess () {
+    await this.ctx.helper.exec(`ps gx | grep node`, this.emit.bind(this))
   }
 
   /**
@@ -243,7 +258,7 @@ class ChatController extends Util {
    */
   async publish (dirName) {
     // 将组件数据注入模版页面内
-    const { readFile, writeFile, reg, exec } = this.ctx.helper
+    const { readFile, writeFile, reg, exec, getDir } = this.ctx.helper
     const projectPath = `${this.config.projectPath}/${dirName}`
     const pagePath = `${projectPath}/src/views/Index.vue`
     const info = await this.getProjectInfo(dirName)
@@ -258,20 +273,28 @@ class ChatController extends Util {
     // 写入数据
     await writeFile(pagePath, final)
     this.emit('将组件注入src/views/Index.vue完成')
-    // 打包数据
-    await exec([
-      `cd ${projectPath}`,
-      'npm install',
-      `npm run build`
-    ], this.emit.bind(this)).catch(err => {
+    this.emit('检查模块依赖')
+    await getDir(`${projectPath}/node_modules`).catch(async () => {
+      this.emit('依赖不存在、安装依赖')
+      await exec([`cd ${projectPath}`, 'cnpm install'], this.emit.bind(this))
+    })
+    this.emit('打包项目')
+    await exec([`cd ${projectPath}`, `npm run build:release`], this.emit.bind(this)).catch(err => {
       if (err) throw err
     })
-    // 将数据回写还原
+    this.emit('将组件注入src/views/Index.vue数据回写还原')
     await writeFile(pagePath, content)
-    this.emit('构建完成')
+    this.emit('构建到release完成')
     this.emit({ name: 'publish', result: {
-        url: `${this.config.serverPath}/${dirName}/dist/index.html`
-      }})
+      url: `${this.config.serverPath}/${dirName}/release/index.html`
+    }})
+  }
+
+  async updateComponentSort ({ data, dirName }) {
+    // const info = await this.getProjectInfo(dirName)
+    await this.saveProjectInfo({ components: data, dirName })
+    await this.renderComponent(dirName)
+    this.emit({ result: true, name: 'updateComponentSort' })
   }
 }
 
