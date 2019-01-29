@@ -12,9 +12,16 @@ class HomeController extends Base {
 
   async getRecords () {
     const data = await this.service.record.getRecords()
+    // 从redis中取出站点状态
+    const projectRedisResult = data.length
+      ? await this.app.redis.mget(...data.map(item => item.dir_name))
+      : []
     this.ctx.body = {
       success: true,
-      data
+      data: data.map((x, i) => ({
+        ...x._doc,
+        editStatus: projectRedisResult[i]
+      }))
     }
   }
 
@@ -23,8 +30,9 @@ class HomeController extends Base {
     const { id, dirName } = this.ctx.request.body
     await this.service.record.delRecord(id)
     // 删除文件夹
-    // const projectPath = `${this.config.projectPath}`
     await this.ctx.helper.exec([`cd ${this.config.projectPath}`, `rm -rf ${dirName}`])
+    // 删除redis
+    await this.app.redis.del(dirName)
     this.ctx.body = {
       success: true,
       data: null
