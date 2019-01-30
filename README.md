@@ -9,3 +9,20 @@
   - [mongoose](https://mongoosejs.com/docs/models.html#deleting)
 - [egg-redis](https://github.com/eggjs/egg-redis)
   - [ioredis](https://github.com/luin/ioredis)
+
+启动mongodb
+```shell
+cd /Users/yangming/mongodb/bin
+mongod
+```
+
+启动redis
+
+```shell
+redis-server /usr/local/etc/redis.conf
+```
+
+启动服务
+```shell
+npm run dev
+```
