@@ -6,6 +6,15 @@ class Util extends Controller {
     this.ctx.socket.emit(this.ctx.app.config.logName, message)
   }
 
+  async execInDir (dirName, cmd) {
+    if (typeof cmd === 'string') {
+      cmd = [cmd]
+    }
+    const projectPath = path.resolve(this.config.projectPath, dirName)
+    cmd.unshift(`cd ${projectPath}`)
+    return this.ctx.helper.exec(cmd, this.emit.bind(this))
+  }
+
   /**
    * 处理模版
    * @param repoName {String} 模版repository名称
@@ -13,16 +22,21 @@ class Util extends Controller {
    * @returns {Promise<{url: string, dirName: *}>}
    */
   async makeTemplateDir (repoName, dirName) {
-    let { projectPath, serverPath } = this.config
+    const { serverPath } = this.config
     const { downloadRepo, readFile } = this.ctx.helper
-    projectPath = path.resolve(projectPath, dirName)
+    const projectPath = path.resolve(this.config.projectPath, dirName)
 
     this.emit(`创建项目 ${projectPath}`)
     const exist = await readFile(`${projectPath}/package.json`).catch(async () => {
       this.emit(`下载模版 ${projectPath}`)
       await downloadRepo(repoName, projectPath)
-      this.emit(`模版下载完成`)
-      await this.ctx.helper.exec([`cd ${projectPath}`], this.emit.bind(this))
+      this.emit(`模版下载完成，安装依赖`)
+      await this.execInDir(dirName, `cnpm install`)
+      // await this.ctx.helper.exec([
+      //   `cd ${projectPath}`,
+      //   `cnpm install`
+      // ], this.emit.bind(this))
+      this.emit(`安装依赖完成`)
       return null
     })
     exist && this.emit(`项目已存在 ${projectPath}`)
@@ -104,6 +118,7 @@ class ChatController extends Util {
   async savePageConfig ({ title, bgColor, dirName }) {
     const info = await this.getProjectInfo(dirName)
     await this.saveProjectInfo({ ...info, title, bgColor })
+    await this.renderComponent(dirName)
     this.emit({ result: { title, bgColor }, name: 'savePageConfig' })
   }
 
@@ -174,18 +189,24 @@ class ChatController extends Util {
    * @returns {Promise<*>}
    */
   async renderComponent (dirName) {
+    // 重新render
+    // const { exec } = this.ctx.helper
+    // const projectPath = path.resolve(this.config.projectPath, dirName)
+    await this.execInDir(dirName, 'npm run render').catch(err => {
+      console.log(err)
+    })
     // 直接改写html文件内的data
-    const { readFile, writeFile, reg } = this.ctx.helper
-    const targetPath = `${this.config.projectPath}/${dirName}/dist/index.html`
-    const content = await readFile(targetPath).catch(err => {
-      this.emit(JSON.stringify(err))
-      throw err
-    })
-    const info = await this.getProjectInfo(dirName)
-    const final = content.replace(reg('global-data'), (a, b) => {
-      return a.replace(b, `\n  window.INIT_DATA=${JSON.stringify(info.components)}\n  `)
-    })
-    return await writeFile(targetPath, final)
+    // const { readFile, writeFile, reg } = this.ctx.helper
+    // const targetPath = `${this.config.projectPath}/${dirName}/dist/index.html`
+    // const content = await readFile(targetPath).catch(err => {
+    //   this.emit(JSON.stringify(err))
+    //   throw err
+    // })
+    // const info = await this.getProjectInfo(dirName)
+    // const final = content.replace(reg('global-data'), (a, b) => {
+    //   return a.replace(b, `\n  window.INIT_DATA=${JSON.stringify(info.components)}\n  `)
+    // })
+    // return await writeFile(targetPath, final)
   }
 
   /**
@@ -233,7 +254,7 @@ class ChatController extends Util {
     })
     await this.saveProjectInfo({ components: info.components, dirName })
     await this.renderComponent(dirName)
-    this.emit({ result: true, name: 'updateComponent' })
+    this.emit({ result: info.components, name: 'updateComponent' })
   }
 
   /**
@@ -244,11 +265,11 @@ class ChatController extends Util {
    */
   async delComponent ({ dirName, componentId }) {
     const info = await this.getProjectInfo(dirName)
-    const index = info.components.find(x => x.id === componentId)
+    const index = info.components.findIndex(x => x.id === componentId)
     info.components.splice(index, 1)
     await this.saveProjectInfo({ components: info.components, dirName })
     await this.renderComponent(dirName)
-    this.emit({ result: componentId, name: 'delComponent' })
+    this.emit({ result: { componentId, components: info.components }, name: 'delComponent' })
   }
 
   /**
@@ -276,10 +297,12 @@ class ChatController extends Util {
     this.emit('检查模块依赖')
     await getDir(`${projectPath}/node_modules`).catch(async () => {
       this.emit('依赖不存在、安装依赖')
-      await exec([`cd ${projectPath}`, 'cnpm install'], this.emit.bind(this))
+      // await exec([`cd ${projectPath}`, 'cnpm install'], this.emit.bind(this))
+      await this.execInDir(dirName, 'cnpm install')
     })
     this.emit('打包项目')
-    await exec([`cd ${projectPath}`, `npm run build:release`], this.emit.bind(this)).catch(err => {
+    // await exec([`cd ${projectPath}`, `npm run build:release`], this.emit.bind(this)).catch(err => {
+    await this.execInDir(dirName, `npm run build:release`).catch(err => {
       if (err) throw err
     })
     this.emit('将组件注入src/views/Index.vue数据回写还原')
