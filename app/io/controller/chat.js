@@ -116,8 +116,20 @@ class ChatController extends Util {
     }
   }
 
-  init () {
-    this.emit('socket已连接，初始化工作目录')
+  async init () {
+    this.emit('socket已连接')
+    // 初始化projectPath
+    const key = 'document_dir'
+    const isDocDirExist = await this.app.redis.get(key)
+    if (!isDocDirExist) {
+      const { exec, getDir } = this.ctx.helper
+      await exec(`mkdir -p ${this.config.projectPath}`)
+      const reCheck = await getDir(this.config.projectPath).catch(() => null)
+      if (reCheck) {
+        await this.app.redis.set(key, true)
+        this.emit('初始化工作目录完成')
+      }
+    }
   }
 
   async savePageConfig ({ title, bgColor, dirName }) {
@@ -170,6 +182,8 @@ class ChatController extends Util {
       })
       result.recordId = record.id
     }
+    this.emit('写入更新缓存')
+    await this.app.redis.set(`${dirName}_update`, Date.now())
     this.emit({ result, name: 'prepareTemplate' })
   }
 
@@ -284,7 +298,7 @@ class ChatController extends Util {
    */
   async publish (dirName) {
     // 将组件数据注入模版页面内
-    const { readFile, writeFile, reg, exec, getDir } = this.ctx.helper
+    const { readFile, writeFile, reg, getDir } = this.ctx.helper
     const projectPath = `${this.config.projectPath}/${dirName}`
     const pagePath = `${projectPath}/src/views/Index.vue`
     const info = await this.getProjectInfo(dirName)
@@ -313,9 +327,9 @@ class ChatController extends Util {
     this.emit('将组件注入src/views/Index.vue数据回写还原')
     await writeFile(pagePath, content)
     this.emit('构建到release完成')
-    this.emit({ name: 'publish', result: {
-      url: `${this.config.serverPath}/${dirName}/release/index.html`
-    }})
+    this.emit('更该数据库记录为已构建')
+    await this.service.record.updateRecord(dirName, { status: 1 })
+    this.emit({ name: 'publish', result: { url: `${this.config.serverPath}/${dirName}/release/index.html` }})
   }
 
   async updateComponentSort ({ data, dirName }) {
@@ -341,6 +355,7 @@ class ChatController extends Util {
    * @returns {Promise<void>}
    */
   async checkTemplateComponentUpdate ({ dirName }) {
+    this.emit('检查模版与组件更新缓存')
     const redisKey = `${dirName}_update`
     const oldTime = await this.app.redis.get(redisKey)
     if (oldTime && Date.now() - oldTime < 10 * 60 * 1000) {

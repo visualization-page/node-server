@@ -24,6 +24,16 @@ module.exports = app => {
       return query
     }
 
+    async updateRecord (dir_name, updateObj = {}) {
+      const modify = await app.model.Record
+        .findOneAndUpdate({ dir_name }, { ...updateObj, updated_at: Date.now() })
+        .catch(err => {
+          app.logger.error(DB_SERVICE, err)
+          throw err
+        })
+      return modify
+    }
+
     async delRecord (id) {
       return await app.model.Record.deleteOne({ id })
     }

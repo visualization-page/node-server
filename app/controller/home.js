@@ -33,6 +33,7 @@ class HomeController extends Base {
     await this.ctx.helper.exec([`cd ${this.config.projectPath}`, `rm -rf ${dirName}`])
     // 删除redis
     await this.app.redis.del(dirName)
+    await this.app.redis.del(`${dirName}_update`)
     this.ctx.body = {
       success: true,
       data: null
