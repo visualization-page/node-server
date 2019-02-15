@@ -13,6 +13,25 @@ module.exports = {
     })
   },
 
+  // 检查目录是否存在
+  // 不存在则新建
+  async checkMakeDir (path) {
+    console.log(path)
+    await this.getDir(path).then(res => {
+      console.log(res)
+    }).catch(async () => {
+      console.log(111)
+      const dir = path.substr(path.lastIndexOf('/'))
+      console.log(dir, '=====')
+      await this.exec([
+        `cd ${path.replace(dir, '')}`,
+        `mkdir -p ${dir}`
+      ]).catch(err => {
+        console.log(err)
+      })
+    })
+  },
+
   getDir (path) {
     return fsPromise.readdir(path)
   },

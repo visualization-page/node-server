@@ -1,16 +1,21 @@
 const Controller = require('egg').Controller
 const path = require('path')
+const semver = require('semver')
 
 class Util extends Controller {
   emit (message) {
     this.ctx.socket.emit(this.ctx.app.config.logName, message)
   }
 
+  getProjectPath (dirName) {
+    return path.resolve(this.config.projectPath, dirName)
+  }
+
   async execInDir (dirName, cmd) {
     if (typeof cmd === 'string') {
       cmd = [cmd]
     }
-    const projectPath = path.resolve(this.config.projectPath, dirName)
+    const projectPath = this.getProjectPath(dirName)
     cmd.unshift(`cd ${projectPath}`)
     return this.ctx.helper.exec(cmd, this.emit.bind(this))
   }
@@ -112,7 +117,7 @@ class ChatController extends Util {
   }
 
   init () {
-    this.emit('socket已连接')
+    this.emit('socket已连接，初始化工作目录')
   }
 
   async savePageConfig ({ title, bgColor, dirName }) {
@@ -327,6 +332,58 @@ class ChatController extends Util {
       this.emit(`更新站点${dirName}状态为${status}`)
       this.emit({ result: status, name: 'setProjectStatus' })
     }
+  }
+
+  /**
+   * 检查远程模版与组件库是否更新
+   * 用redis记录更新缓存时间
+   * @param dirName
+   * @returns {Promise<void>}
+   */
+  async checkTemplateComponentUpdate ({ dirName }) {
+    const redisKey = `${dirName}_update`
+    const oldTime = await this.app.redis.get(redisKey)
+    if (oldTime && Date.now() - oldTime < 10 * 60 * 1000) {
+      const msg = `checkTemplateComponentUpdate处于缓存期，剩余缓存时间 ${600 - (Date.now() - oldTime) / 1000}s`
+      console.log(msg)
+      this.emit({ result: msg, name: 'checkTemplateComponentUpdate' })
+      return
+    }
+    await this.app.redis.set(redisKey, Date.now())
+
+    const projectPath = this.getProjectPath(dirName)
+    const componentFile = '/src/components/config.json'
+    const nowComponentVersion = require(`${projectPath}${componentFile}`).version
+    const nowTemplateVersion = require(`${projectPath}/package.json`).version
+
+    const repoName = require(`${projectPath}/site-config.json`).template.files
+    const dest = path.join(projectPath, '../../', 'cache-template')
+    const { downloadRepo, exec, getDir } = this.ctx.helper
+    await downloadRepo(repoName, dest)
+
+    const newComponentVersion = require(`${dest}${componentFile}`).version
+    const newTemplateVersion = require(`${dest}/package.json`).version
+
+    if (
+      semver.gt(newTemplateVersion, nowTemplateVersion) ||
+      newComponentVersion > nowComponentVersion
+    ) {
+      this.emit('组件和模版有更新')
+      const notUpdate = ['site-config.json', 'release']
+      getDir(dest).then(async files => {
+        const arr = []
+        files.forEach(file => {
+          if (notUpdate.every(x => x !==file)) {
+            arr.push(`cp -rf ${dest}/${file} ${projectPath}`)
+          }
+        })
+        await exec(arr)
+      })
+      this.emit('更新完成，重新render页面')
+      await this.renderComponent(dirName)
+      this.emit('重新render完成')
+    }
+    this.emit({ result: '校验完成', name: 'checkTemplateComponentUpdate' })
   }
 }
 
