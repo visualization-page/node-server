@@ -119,22 +119,28 @@ class ChatController extends Util {
   async init () {
     this.emit('socket已连接')
     // 初始化projectPath
-    const key = 'document_dir'
-    const isDocDirExist = await this.app.redis.get(key)
+    const { initWorkspace } = this.config.redisKey
+    const isDocDirExist = await this.app.redis.get(initWorkspace)
     if (!isDocDirExist) {
       const { exec, getDir } = this.ctx.helper
       await exec(`mkdir -p ${this.config.projectPath}`)
       const reCheck = await getDir(this.config.projectPath).catch(() => null)
       if (reCheck) {
-        await this.app.redis.set(key, true)
+        await this.app.redis.set(initWorkspace, true)
         this.emit('初始化工作目录完成')
       }
     }
   }
 
-  async savePageConfig ({ title, bgColor, dirName }) {
+  async savePageConfig ({ title, bgColor, dirName, pageId }) {
     const info = await this.getProjectInfo(dirName)
-    await this.saveProjectInfo({ ...info, title, bgColor })
+    if (pageId) {
+      info.multiData[pageId].title = title
+      info.multiData[pageId].bgColor = bgColor
+      await this.saveProjectInfo(info)
+    } else {
+      await this.saveProjectInfo({ ...info, title, bgColor })
+    }
     await this.renderComponent(dirName)
     this.emit({ result: { title, bgColor }, name: 'savePageConfig' })
   }
@@ -233,9 +239,12 @@ class ChatController extends Util {
    * @param dirName
    * @returns {Promise<void>}
    */
-  async projectInfo (dirName) {
-    const info = await this.getProjectInfo(dirName)
-    this.emit({ result: info, name: 'projectInfo' })
+  async projectInfo ({ dirName, pageId }) {
+    let result = await this.getProjectInfo(dirName)
+    if (pageId) {
+      result = result.multiData[pageId]
+    }
+    this.emit({ result, name: 'projectInfo' })
   }
 
   /**
@@ -244,15 +253,20 @@ class ChatController extends Util {
    * @param item {String} 组件信息
    * @returns {Promise<void>}
    */
-  async putComponent ({ dirName, item }) {
+  async putComponent ({ dirName, item, pageId }) {
     const info = await this.getProjectInfo(dirName)
     const pushItem = {
       ...item,
       id: `${Date.now()}-${Math.ceil(Math.random()*100)}`
     }
-    info.components.push(pushItem)
     this.emit('保存新增组件信息')
-    await this.saveProjectInfo({ components: info.components, dirName })
+    if (pageId) {
+      info.multiData[pageId].components.push(pushItem)
+      await this.saveProjectInfo({ dirName, multiData: info.multiData })
+    } else {
+      info.components.push(pushItem)
+      await this.saveProjectInfo({ components: info.components, dirName })
+    }
     await this.renderComponent(dirName)
     this.emit({ result: pushItem, name: 'putComponent' })
   }
@@ -264,14 +278,23 @@ class ChatController extends Util {
    * @param componentId
    * @returns {Promise<void>}
    */
-  async updateComponent ({ dirName, props, componentId }) {
+  async updateComponent ({ dirName, props, componentId, pageId }) {
     const info = await this.getProjectInfo(dirName)
-    info.components.forEach(item => {
-      if (item.id === componentId) {
-        item.props = props
-      }
-    })
-    await this.saveProjectInfo({ components: info.components, dirName })
+    if (pageId) {
+      info.multiData[pageId].components.forEach(item => {
+        if (item.id === componentId) {
+          item.props = props
+        }
+      })
+      await this.saveProjectInfo({ multiData: info.multiData, dirName })
+    } else {
+      info.components.forEach(item => {
+        if (item.id === componentId) {
+          item.props = props
+        }
+      })
+      await this.saveProjectInfo({ components: info.components, dirName })
+    }
     await this.renderComponent(dirName)
     this.emit({ result: info.components, name: 'updateComponent' })
   }
@@ -282,11 +305,17 @@ class ChatController extends Util {
    * @param componentId
    * @returns {Promise<void>}
    */
-  async delComponent ({ dirName, componentId }) {
+  async delComponent ({ dirName, componentId, pageId }) {
     const info = await this.getProjectInfo(dirName)
-    const index = info.components.findIndex(x => x.id === componentId)
-    info.components.splice(index, 1)
-    await this.saveProjectInfo({ components: info.components, dirName })
+    if (pageId) {
+      const index = info.multiData[pageId].components.findIndex(x => x.id === componentId)
+      info.multiData[pageId].components.splice(index, 1)
+      await this.saveProjectInfo({ multiData: info.multiData, dirName })
+    } else {
+      const index = info.components.findIndex(x => x.id === componentId)
+      info.components.splice(index, 1)
+      await this.saveProjectInfo({ components: info.components, dirName })
+    }
     await this.renderComponent(dirName)
     this.emit({ result: { componentId, components: info.components }, name: 'delComponent' })
   }
@@ -332,9 +361,14 @@ class ChatController extends Util {
     this.emit({ name: 'publish', result: { url: `${this.config.serverPath}/${dirName}/release/index.html` }})
   }
 
-  async updateComponentSort ({ data, dirName }) {
-    // const info = await this.getProjectInfo(dirName)
-    await this.saveProjectInfo({ components: data, dirName })
+  async updateComponentSort ({ data, dirName, pageId }) {
+    if (pageId) {
+      const info = await this.getProjectInfo(dirName)
+      info.multiData[pageId].components = data
+      await this.saveProjectInfo({ multiData: info.multiData, dirName })
+    } else {
+      await this.saveProjectInfo({ components: data, dirName })
+    }
     await this.renderComponent(dirName)
     this.emit({ result: true, name: 'updateComponentSort' })
   }
@@ -356,47 +390,51 @@ class ChatController extends Util {
    */
   async checkTemplateComponentUpdate ({ dirName }) {
     this.emit('检查模版与组件更新缓存')
-    const redisKey = `${dirName}_update`
-    const oldTime = await this.app.redis.get(redisKey)
-    if (oldTime && Date.now() - oldTime < 10 * 60 * 1000) {
-      const msg = `checkTemplateComponentUpdate处于缓存期，剩余缓存时间 ${600 - (Date.now() - oldTime) / 1000}s`
-      console.log(msg)
-      this.emit({ result: msg, name: 'checkTemplateComponentUpdate' })
-      return
-    }
-    await this.app.redis.set(redisKey, Date.now())
-
+    // const redisKey = `${dirName}_update`
+    const { version } = this.config.redisKey
     const projectPath = this.getProjectPath(dirName)
     const componentFile = '/src/components/config.json'
-    const nowComponentVersion = require(`${projectPath}${componentFile}`).version
-    const nowTemplateVersion = require(`${projectPath}/package.json`).version
 
-    const repoName = require(`${projectPath}/site-config.json`).template.files
-    const dest = path.join(projectPath, '../../', 'cache-template')
-    const { downloadRepo, exec, getDir } = this.ctx.helper
-    await downloadRepo(repoName, dest)
-
-    const newComponentVersion = require(`${dest}${componentFile}`).version
-    const newTemplateVersion = require(`${dest}/package.json`).version
-
-    if (
-      semver.gt(newTemplateVersion, nowTemplateVersion) ||
-      newComponentVersion > nowComponentVersion
-    ) {
-      this.emit('组件和模版有更新')
+    const doUpdate = async () => {
+      this.emit('组件和模版有更新，开始下载模版')
+      const repoName = require(`${projectPath}/site-config.json`).template.files
+      const dest = path.join(projectPath, '../../', 'cache-template')
+      const { downloadRepo, exec, getDir } = this.ctx.helper
+      await downloadRepo(repoName, dest)
       const notUpdate = ['site-config.json', 'release']
-      getDir(dest).then(async files => {
-        const arr = []
-        files.forEach(file => {
-          if (notUpdate.every(x => x !==file)) {
-            arr.push(`cp -rf ${dest}/${file} ${projectPath}`)
-          }
-        })
-        await exec(arr)
+
+      const files = await getDir(dest)
+      const arr = []
+      files.forEach(file => {
+        if (notUpdate.every(x => x !==file)) {
+          arr.push(`cp -rf ${dest}/${file} ${projectPath}`)
+        }
       })
-      this.emit('更新完成，重新render页面')
+      await exec(arr)
+      this.emit('拷贝更新完成，重新render页面')
       await this.renderComponent(dirName)
       this.emit('重新render完成')
+      await this.app.redis.set(version, JSON.stringify({
+        component: require(`${dest}${componentFile}`).version,
+        template: require(`${dest}/package.json`).version
+      }))
+    }
+
+    const remoteVersion = await this.app.redis.get(version)
+    if (!remoteVersion) {
+      this.emit('远端version不存在')
+      await doUpdate()
+    } else {
+      const nowComponentVersion = require(`${projectPath}${componentFile}`).version
+      const nowTemplateVersion = require(`${projectPath}/package.json`).version
+      const { component, template } = JSON.parse(remoteVersion)
+      if (
+        semver.gt(template, nowTemplateVersion) ||
+        component > nowComponentVersion
+      ) {
+        this.emit(`远端version: ${template}, ${component}；本地: ${nowTemplateVersion}, ${nowComponentVersion}`)
+        await doUpdate()
+      }
     }
     this.emit({ result: '校验完成', name: 'checkTemplateComponentUpdate' })
   }

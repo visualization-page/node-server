@@ -44,5 +44,11 @@ module.exports = appInfo => {
   // config.materialsRepo = 'vue-materials'
   // config.log = 'operatorLogger'
   config.logName = 'operatorLog'
+
+  config.redisKey = {
+    initWorkspace: 'document_dir',
+    version: 'remote_version'
+  }
+
   return config
 }
