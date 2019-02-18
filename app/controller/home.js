@@ -45,7 +45,7 @@ class HomeController extends Base {
     const json = require(`${this.config.projectPath}/${dirName}/site-config.json`)
     const pageIds = json.multiData ? Object.keys(json.multiData).map(x => ({
       id: x,
-      name: x.title
+      name: json.multiData[x].title
     })) : []
     this.ctx.body = {
       success: true,
@@ -80,7 +80,19 @@ class HomeController extends Base {
   }
 
   async delRecordPages () {
-
+    const { dirName, pageId } = this.ctx.request.body
+    const configPath = `${this.config.projectPath}/${dirName}/site-config.json`
+    const json = require(configPath)
+    delete json.multiData[pageId]
+    await this.ctx.helper.writeFile(configPath, JSON.stringify(json))
+    await this.ctx.helper.exec([
+      `cd ${this.config.projectPath}/${dirName}`,
+      'npm run render'
+    ])
+    this.ctx.body = {
+      success: true,
+      data: true
+    }
   }
 }
 

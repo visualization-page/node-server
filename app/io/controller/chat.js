@@ -394,24 +394,46 @@ class ChatController extends Util {
     const { version } = this.config.redisKey
     const projectPath = this.getProjectPath(dirName)
     const componentFile = '/src/components/config.json'
+    // console.log()
 
     const doUpdate = async () => {
       this.emit('组件和模版有更新，开始下载模版')
-      const repoName = require(`${projectPath}/site-config.json`).template.files
+      const oldJson = require(`${projectPath}/site-config.json`)
       const dest = path.join(projectPath, '../../', 'cache-template')
-      const { downloadRepo, exec, getDir } = this.ctx.helper
-      await downloadRepo(repoName, dest)
-      const notUpdate = ['site-config.json', 'release']
+      const { downloadRepo, exec, getDir, writeFile } = this.ctx.helper
+      await downloadRepo(oldJson.template.files, dest)
+      const notUpdate = ['release', 'site-config.json']
 
       const files = await getDir(dest)
       const arr = []
       files.forEach(file => {
-        if (notUpdate.every(x => x !==file)) {
+        if (notUpdate.every(x => x !== file)) {
           arr.push(`cp -rf ${dest}/${file} ${projectPath}`)
         }
       })
       await exec(arr)
-      this.emit('拷贝更新完成，重新render页面')
+
+      // 更新 site-config.json 中的schema
+      this.emit('升级schema')
+      const schemaCache = {}
+      const updateSchema = arr => {
+        arr.forEach(item => {
+          // let type = item.path.substr(item.path.lastIndexOf('/')).replace('/', '')
+          if (!schemaCache[item.name]) {
+            schemaCache[item.name] = require(`${projectPath}/${item.path.replace('@', 'src').replace(`/index.vue`, '/schema.js')}`)
+          }
+          item.schema = schemaCache[item.name]
+        })
+        return arr
+      }
+      oldJson.components = updateSchema(oldJson.components)
+      Object.keys(oldJson.multiData).forEach(key => {
+        oldJson.multiData[key].components = updateSchema(oldJson.multiData[key].components)
+      })
+      await writeFile(`${projectPath}/site-config.json`, JSON.stringify(oldJson, null, 2))
+      this.emit('升级schema完成')
+
+      this.emit('重新render页面')
       await this.renderComponent(dirName)
       this.emit('重新render完成')
       await this.app.redis.set(version, JSON.stringify({
@@ -427,6 +449,7 @@ class ChatController extends Util {
     } else {
       const nowComponentVersion = require(`${projectPath}${componentFile}`).version
       const nowTemplateVersion = require(`${projectPath}/package.json`).version
+      // console.log(require(`${projectPath}/package.json`))
       const { component, template } = JSON.parse(remoteVersion)
       if (
         semver.gt(template, nowTemplateVersion) ||
