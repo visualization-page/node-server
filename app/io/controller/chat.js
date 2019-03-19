@@ -374,7 +374,7 @@ class ChatController extends Util {
   }
 
   async setProjectStatus ({ dirName, status }) {
-    const res = await this.app.redis.set(dirName, status, 'EX', 6 * 60 * 60) // 6h
+    const res = await this.app.redis.set(dirName, status, 'EX', 1 * 60) // 1min
       .catch(err => this.emit(err.message))
     if (res === 'OK') {
       this.emit(`更新站点${dirName}状态为${status}`)
